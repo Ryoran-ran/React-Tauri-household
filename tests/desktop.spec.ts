@@ -6,9 +6,10 @@ import {
   type Page,
 } from "@playwright/test";
 import { spawn, type ChildProcess } from "node:child_process";
-import { mkdir, mkdtemp } from "node:fs/promises";
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { resolve, join } from "node:path";
 import { routineScenario } from "./routine-scenario";
+import { updaterScenario } from "./updater-scenario";
 
 let child: ChildProcess;
 let browser: Browser;
@@ -552,12 +553,13 @@ test("実機: 支払い方法・入力テンプレート・定期収支・今回
   ).toHaveCount(0);
 });
 
-async function start() {
+async function start(extraEnv: Record<string, string> = {}) {
   console.log("Starting isolated desktop app");
   child = spawn(resolve("src-tauri/target/debug/hibi-kakeibo.exe"), [], {
     windowsHide: true,
     env: {
       ...process.env,
+      ...extraEnv,
       HIBI_TEST_DATA_DIR: testDirectory,
       WEBVIEW2_USER_DATA_FOLDER: join(testDirectory, "webview"),
       WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: "--remote-debugging-port=19224",
@@ -616,6 +618,48 @@ async function start() {
     page.getByRole("button", { name: "収支を記録", exact: true }),
   ).toBeEnabled();
 }
+
+test("実機: 更新確認・署名検証・バックアップ・失敗後の復帰", async () => {
+  await updaterScenario(
+    testDirectory,
+    async (env) => {
+      await start(env);
+      await add("400", "更新前の記録", "normal");
+      return page;
+    },
+    () => add("500", "更新失敗後の記録", "normal"),
+  );
+});
+
+test("実機: 更新未設定の案内と手動バックアップ", async () => {
+  const config = join(testDirectory, "unconfigured.json");
+  await writeFile(
+    config,
+    JSON.stringify({ pubkey: "", endpoints: ["http://127.0.0.1/latest.json"] }),
+  );
+  await start({ HIBI_TEST_UPDATER_CONFIG: config });
+  await page
+    .getByRole("navigation")
+    .getByRole("button", { name: "設定", exact: true })
+    .dispatchEvent("click");
+  await page
+    .getByRole("button", { name: "アップデート", exact: true })
+    .dispatchEvent("click");
+  await expect(page.getByTestId("updater-unconfigured")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "更新を確認", exact: true }),
+  ).toBeDisabled();
+  await page
+    .getByRole("button", { name: "今すぐバックアップ", exact: true })
+    .dispatchEvent("click");
+  await expect(page.getByTestId("update-backup-path")).toContainText(
+    testDirectory,
+  );
+  await page.screenshot({
+    path: "test-results/updates-unconfigured.png",
+    fullPage: true,
+  });
+});
 
 async function stop() {
   if (child && child.exitCode === null) {

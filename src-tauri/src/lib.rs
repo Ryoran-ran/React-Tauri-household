@@ -2,12 +2,16 @@ mod db;
 mod holidays;
 mod ordering;
 mod routines;
+mod updates;
 
 use db::{Category, Entry, EntryInput, Snapshot};
-use std::sync::Mutex;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Mutex,
+};
 use tauri::{Manager, State};
 
-struct Database(Mutex<rusqlite::Connection>);
+struct Database(Mutex<rusqlite::Connection>, AtomicBool);
 
 fn data_directory(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
     // Debug integration tests use an isolated database, never the personal ledger.
@@ -25,6 +29,9 @@ fn access<T>(
     let connection = state.0.lock().map_err(|_| {
         "データベースにアクセスできません。アプリを再起動してください。".to_string()
     })?;
+    if state.1.load(Ordering::SeqCst) {
+        return Err("アップデート中は収支を変更できません。".into());
+    }
     operation(&connection)
 }
 
@@ -160,15 +167,23 @@ fn data_path(app: tauri::AppHandle) -> Result<String, String> {
 
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_opener::Builder::new().build())
+        .manage(updates::UpdateState::default())
         .setup(|app| {
             let directory = data_directory(app.handle()).map_err(std::io::Error::other)?;
             std::fs::create_dir_all(&directory)?;
             let connection =
                 db::open(&directory.join("kakeibo.sqlite3")).map_err(std::io::Error::other)?;
-            app.manage(Database(Mutex::new(connection)));
+            app.manage(Database(Mutex::new(connection), AtomicBool::new(false)));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            updates::update_info,
+            updates::check_update,
+            updates::install_update,
+            updates::create_update_backup,
+            updates::open_release_page,
             load_holidays,
             refresh_holidays,
             load_data,

@@ -1374,6 +1374,41 @@ input::placeholder {
   flex-direction: column;
   gap: 16px;
 }
+.update-content {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.update-content > .button {
+  align-self: flex-start;
+}
+.update-notice {
+  background: #faf4e5;
+  border-radius: 7px;
+  padding: 14px;
+}
+.update-url {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+.update-release {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px;
+}
+.update-release pre {
+  font: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 15px 0;
+}
+.confirm-body progress {
+  width: 100%;
+  accent-color: var(--green);
+  margin-top: 14px;
+}
 .analysis-options > .button {
   align-self: flex-start;
 }

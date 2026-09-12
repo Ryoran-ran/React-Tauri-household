@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { CalendarDays, RefreshCw } from "lucide-react";
 import PaymentMethods from "./PaymentMethods";
+import Updates from "./Updates";
 import { api } from "./api";
 import { EmptyState } from "./components";
 import type { HolidayCalendar, Snapshot } from "./types";
@@ -8,9 +9,11 @@ import type { HolidayCalendar, Snapshot } from "./types";
 export default function Settings({
   data,
   onChanged,
+  onUpdateBusy,
 }: {
   data: Snapshot;
   onChanged: () => Promise<void>;
+  onUpdateBusy: (busy: boolean) => void;
 }) {
   const [tab, setTab] = useState("payments");
   return (
@@ -34,11 +37,20 @@ export default function Settings({
         >
           祝日
         </button>
+        <button
+          className={tab === "updates" ? "selected" : ""}
+          aria-pressed={tab === "updates"}
+          onClick={() => setTab("updates")}
+        >
+          アップデート
+        </button>
       </div>
       {tab === "payments" ? (
         <PaymentMethods data={data} onChanged={onChanged} />
-      ) : (
+      ) : tab === "holidays" ? (
         <Holidays onChanged={onChanged} />
+      ) : (
+        <Updates onBusy={onUpdateBusy} />
       )}
     </>
   );

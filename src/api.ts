@@ -1,4 +1,5 @@
-import { invoke, isTauri } from "@tauri-apps/api/core";
+import { invoke, isTauri, type Channel } from "@tauri-apps/api/core";
+import type { UpdateInfo, AvailableUpdate, UpdateProgress } from "./Updates";
 import type {
   Category,
   Entry,
@@ -14,6 +15,12 @@ import type {
 
 export const desktopAvailable = () => isTauri();
 export const api = {
+  updateInfo: () => invoke<UpdateInfo>("update_info"),
+  checkUpdate: () => invoke<AvailableUpdate | null>("check_update"),
+  installUpdate: (version: string, onProgress: Channel<UpdateProgress>) =>
+    invoke<string>("install_update", { version, onProgress }),
+  createUpdateBackup: () => invoke<string>("create_update_backup"),
+  openReleasePage: () => invoke<void>("open_release_page"),
   holidays: () => invoke<HolidayCalendar>("load_holidays"),
   refreshHolidays: () => invoke<HolidayInfo>("refresh_holidays"),
   load: () => invoke<Snapshot>("load_data"),

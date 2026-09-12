@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { version as appVersion } from "../package.json";
 import {
   ArrowRight,
   BarChart3,
@@ -89,7 +90,7 @@ const pages = [
     id: "payments",
     label: "設定",
     icon: Settings,
-    description: "支払い方法と、祝日カレンダーを管理。",
+    description: "支払い方法・祝日・アプリの更新を管理。",
   },
   {
     id: "recurring",
@@ -121,6 +122,7 @@ export default function App() {
   const [month, setMonth] = useState(localDate().slice(0, 7));
   const [year, setYear] = useState(new Date().getFullYear());
   const [loading, setLoading] = useState(true);
+  const [updateBusy, setUpdateBusy] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [form, setForm] = useState<FormState | null>(null);
   const [syncError, setSyncError] = useState("");
@@ -166,14 +168,15 @@ export default function App() {
     void load();
   }, [load]);
   useEffect(() => {
-    if (!desktop || loading || loadError || form || deletion) return;
+    if (!desktop || loading || loadError || form || deletion || updateBusy)
+      return;
     const timer = setInterval(refreshSafely, 60_000);
     window.addEventListener("focus", refreshSafely);
     return () => {
       clearInterval(timer);
       window.removeEventListener("focus", refreshSafely);
     };
-  }, [desktop, loading, loadError, form, deletion, refreshSafely]);
+  }, [desktop, loading, loadError, form, deletion, updateBusy, refreshSafely]);
   useEffect(() => {
     if (toast) {
       const timer = setTimeout(() => setToast(""), 4000);
@@ -190,7 +193,8 @@ export default function App() {
         !loadError &&
         !form &&
         !deletion &&
-        !showStorage
+        !showStorage &&
+        !updateBusy
       ) {
         event.preventDefault();
         setForm({ entry: null });
@@ -198,7 +202,7 @@ export default function App() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [desktop, loading, loadError, form, deletion, showStorage]);
+  }, [desktop, loading, loadError, form, deletion, showStorage, updateBusy]);
 
   function savedEntry(entry: Entry, keepOpen: boolean) {
     setData((previous) => ({
@@ -376,7 +380,7 @@ export default function App() {
             <ArrowRight size={14} />
           </button>
           <div className="app-version">
-            HIBI K A K E I B O <span>v0.9.0</span>
+            HIBI K A K E I B O <span>v{appVersion}</span>
           </div>
         </div>
       </aside>
@@ -506,7 +510,11 @@ export default function App() {
               <AnalysisPrompt data={data} month={month} onMonth={setMonth} />
             )}
             {page === "payments" && (
-              <SettingsPage data={data} onChanged={refresh} />
+              <SettingsPage
+                data={data}
+                onChanged={refresh}
+                onUpdateBusy={setUpdateBusy}
+              />
             )}
             {(page === "quick" || page === "recurring") && (
               <Presets
@@ -607,7 +615,7 @@ export default function App() {
           <div className="storage-body">
             <LockKeyhole size={28} />
             <p>
-              収支やメモを外部サービスへ送信しません。祝日の取得・更新時だけ内閣府の公開CSVをダウンロードします。銀行・証券口座との自動連携はありません。
+              収支やメモを外部サービスへ送信しません。祝日の取得時は内閣府、アプリの更新確認・ダウンロード時はGitHubに接続します。銀行・証券口座との自動連携はありません。
             </p>
             <label>保存ファイル</label>
             <code>
