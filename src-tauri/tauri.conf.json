@@ -1,20 +1,51 @@
 {
-  "$schema": "https://schema.tauri.app/config/2",
-  "productName": "HIBI 家計簿",
-  "version": "0.9.0",
-  "identifier": "jp.hibi.kakeibo",
-  "build": {
-    "beforeDevCommand": "npm run dev",
-    "devUrl": "http://127.0.0.1:1420",
-    "beforeBuildCommand": "npm run build",
-    "frontendDist": "../dist"
-  },
-  "app": {
-    "windows": [{ "title": "HIBI — 日々の家計", "width": 1280, "height": 900, "minWidth": 800, "minHeight": 650 }],
-    "security": {
-      "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost; img-src 'self' asset: http://asset.localhost data:; style-src 'self' 'unsafe-inline'; script-src 'self'; object-src 'none'; frame-src 'none'; base-uri 'self'",
-      "capabilities": ["main"]
-    }
-  },
-  "bundle": { "active": true, "targets": ["nsis"], "icon": ["icons/icon.ico"], "shortDescription": "生活と資産形成を分ける家計簿", "category": "Finance" }
+    "$schema":  "https://schema.tauri.app/config/2",
+    "productName":  "HIBI 家計簿",
+    "version":  "0.10.0",
+    "identifier":  "jp.hibi.kakeibo",
+    "build":  {
+                  "beforeDevCommand":  "npm run dev",
+                  "devUrl":  "http://127.0.0.1:1420",
+                  "beforeBuildCommand":  "npm run build",
+                  "frontendDist":  "../dist"
+              },
+    "app":  {
+                "windows":  [
+                                {
+                                    "title":  "HIBI — 日々の家計",
+                                    "width":  1280,
+                                    "height":  900,
+                                    "minWidth":  800,
+                                    "minHeight":  650
+                                }
+                            ],
+                "security":  {
+                                 "csp":  "default-src \u0027self\u0027; connect-src ipc: http://ipc.localhost; img-src \u0027self\u0027 asset: http://asset.localhost data:; style-src \u0027self\u0027 \u0027unsafe-inline\u0027; script-src \u0027self\u0027; object-src \u0027none\u0027; frame-src \u0027none\u0027; base-uri \u0027self\u0027",
+                                 "capabilities":  [
+                                                      "main"
+                                                  ]
+                             }
+            },
+    "bundle":  {
+                   "active":  true,
+                   "targets":  [
+                                   "nsis"
+                               ],
+                   "icon":  [
+                                "icons/icon.ico"
+                            ],
+                   "shortDescription":  "生活と資産形成を分ける家計簿",
+                   "category":  "Finance"
+               },
+    "plugins":  {
+                    "updater":  {
+                                    "pubkey":  "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEQyQjAzQzQyMzdCQzFFNzYKUldSMkhydzNRanl3MGt1ODB6TTdCT0Z5LzhYSUk1Z3hWaXhLeXVoZU4zdGU5NHovZG5WWEdwbnIK",
+                                    "endpoints":  [
+                                                      "https://github.com/Ryoran-ran/React-Tauri-household/releases/latest/download/latest.json"
+                                                  ],
+                                    "windows":  {
+                                                    "installMode":  "passive"
+                                                }
+                                }
+                }
 }

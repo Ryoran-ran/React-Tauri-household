@@ -1,0 +1,80 @@
+name: Release Windows
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing version tag (for example v0.10.0)"
+        required: true
+        type: string
+permissions:
+  contents: write
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+jobs:
+  windows:
+    runs-on: windows-latest
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - name: Validate version, public key, and endpoint
+        run: node scripts/check-release.mjs
+      - name: Check signing secrets
+        shell: pwsh
+        env:
+          SIGNING_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          SIGNING_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          if (-not $env:SIGNING_KEY -or -not $env:SIGNING_PASSWORD) { throw 'Add both TAURI_SIGNING_PRIVATE_KEY and TAURI_SIGNING_PRIVATE_KEY_PASSWORD in repository Actions secrets.' }
+      - run: npm test
+      - run: npm run test:release
+      - run: cargo test --manifest-path src-tauri/Cargo.toml --locked --lib
+      - name: Read release notes
+        id: notes
+        shell: pwsh
+        run: |
+          $delimiter = [guid]::NewGuid().ToString()
+          $notes = Get-Content -LiteralPath 'docs/RELEASE_NOTES.md' -Raw -Encoding UTF8
+          "body<<$delimiter`n$notes`n$delimiter" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+      - name: Build signed installer and create draft release
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ env.RELEASE_TAG }}
+          releaseName: "HIBI v__VERSION__"
+          releaseBody: ${{ steps.notes.outputs.body }}
+          releaseDraft: true
+          prerelease: false
+          uploadUpdaterJson: true
+          updaterJsonPreferNsis: true
+          args: --config src-tauri/tauri.release.conf.json -- --locked
+      - name: Add a stable download filename
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $installer = @(Get-ChildItem -LiteralPath 'src-tauri/target/release/bundle/nsis' -Filter "*_${version}_x64-setup.exe")
+          if ($installer.Count -ne 1) { throw 'Expected exactly one Windows installer.' }
+          cargo run --manifest-path src-tauri/Cargo.toml --locked --example verify_update -- src-tauri/tauri.conf.json $installer[0].FullName
+          if ($LASTEXITCODE -ne 0) { throw 'Installer signature does not match the application public key. Do not publish this draft.' }
+          New-Item -ItemType Directory -Force release | Out-Null
+          Copy-Item -LiteralPath $installer[0].FullName -Destination 'release/HIBI-setup.exe'
+          gh release upload $env:RELEASE_TAG release/HIBI-setup.exe --clobber
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to upload installer alias.' }
+          $release = gh release view $env:RELEASE_TAG --json assets | ConvertFrom-Json
+          if ('latest.json' -notin $release.assets.name) { throw 'latest.json was not generated. Do not publish this release.' }

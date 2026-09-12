@@ -2,6 +2,15 @@
 
 Tauri 2 + React + TypeScript + SQLite の個人用家計簿です。生活費・税金などの特別支出・資産形成を分け、生活そのものの黒字・赤字を確認できます。
 
+## v0.10.0 の追加機能
+
+- **設定 → アップデート**：更新確認、変更内容の表示、確認後のダウンロード・インストール、配布ページへの移動を追加しました。
+- 更新ファイルの署名を確認し、SQLite をオンラインバックアップしてから更新します。通信・署名・バックアップの失敗時はインストールしません。手動バックアップも利用できます。
+- **GitHub Releases 配布**：バージョンタグから署名付き Windows インストーラーと更新情報を生成する Actions を追加しました。下書きリリースを確認してから公開する方式です。
+- 初回は署名鍵と GitHub Secrets の設定が必要です。ローカルの未設定版では更新確認を無効にしています。[配布・アップデート手順](docs/RELEASING.md) に初期設定から公開、次回更新までまとめています。
+
+公開後のダウンロード先：[最新版の配布ページ](https://github.com/Ryoran-ran/React-Tauri-household/releases/latest) / [Windows インストーラー](https://github.com/Ryoran-ran/React-Tauri-household/releases/latest/download/HIBI-setup.exe)。初回公開までは利用できません。
+
 ## v0.9.0 の追加機能
 
 - **AI分析プロンプトの期間選択**：「月ごと」「四半期」「年間」「任意の期間」を選べます。年間は1〜12月、四半期は1〜3月・4〜6月・7〜9月・10〜12月です。任意期間は開始日と終了日の両端を含みます。
@@ -54,7 +63,7 @@ Tauri 2 + React + TypeScript + SQLite の個人用家計簿です。生活費・
 
 ## 起動
 
-ビルド済みの最新版は **`release/HIBI-0.9.0.exe`** をダブルクリックすると起動します。旧版が開いている場合は、先に終了してください。インストールして使う場合は `release/HIBI-setup.exe` を実行してください。旧版が起動中で`release/HIBI.exe`を更新できない場合も、バージョン付きファイルに最新版を用意します。
+ローカル確認用の最新版は **`release/HIBI-0.10.0.exe`** をダブルクリックすると起動します。旧版が開いている場合は、先に終了してください。インストールして使う場合は `release/HIBI-setup.exe` を実行してください。旧版が起動中で`release/HIBI.exe`を更新できない場合も、バージョン付きファイルに最新版を用意します。アプリ内更新を有効にする初回インストールには、上記手順で鍵を設定した GitHub Actions の配布版を使用してください。
 
 この作業フォルダでは、次のコマンドで起動できます。フォルダ内に用意したNode.jsも自動的に検出します。
 
@@ -103,9 +112,9 @@ Rust側のTauriコマンドが`rusqlite`でSQLiteを操作します。SQLite本�
 - 保存先：アプリ専用のデータフォルダ内の `kakeibo.sqlite3`。
 - Windowsでは通常 `%APPDATA%\jp.hibi.kakeibo\kakeibo.sqlite3`。アプリ左下の「この端末だけに保存」で実際の保存先を確認できます。
 - データは起動フォルダと分けて保存され、終了・再起動後も保持します。
-- 外部通信は祝日更新時の内閣府CSVのHTTPS取得だけです。銀行や証券会社との連携、テレメトリ、外部フォント・画像の読み込みはありません。CSVの応答サイズと待ち時間に上限を設け、取得・検証後にカレンダーと仮入力を一括更新します。
+- 外部通信は、祝日取得時の内閣府CSVと、更新確認・ダウンロード時のGitHubへのHTTPS接続です。収支やメモは送信しません。銀行や証券会社との連携、テレメトリ、外部フォント・画像の読み込みはありません。CSVの応答サイズと待ち時間に上限を設け、取得・検証後にカレンダーと仮入力を一括更新します。
 - 外部キー、CHECK制約、パラメータ化SQL、トランザクションによる初期化、スキーマバージョン管理、WALと同期書き込みを使用します。
-- バックアップ・復元はアプリを終了してから行ってください。`kakeibo.sqlite3`と同じフォルダにある`-wal`・`-shm`ファイルを取りこぼさないよう、保存先フォルダ全体をコピーします。
+- 「設定 → アップデート → 今すぐバックアップ」は起動中に利用できます。手動でファイルをコピーする場合や復元時はアプリを終了してください。手動バックアップでは`-wal`・`-shm`ファイルを取りこぼさないよう、保存先フォルダ全体をコピーします。復元の手順は[配布・アップデート手順](docs/RELEASING.md)を参照してください。
 - ローカルSQLiteファイル自体は暗号化していません。
 - 支払い方法を削除しても、収支とテンプレートは残り、支払い方法だけが「未設定」になります。テンプレートや定期設定の削除でも過去の収支は残ります。
 - 支払い方法は支出の分類用で、カード請求・口座残高の管理機能ではありません。カード利用を支出として記録する場合、後日の引き落としをもう一度支出として記録しない運用を想定しています。
@@ -117,17 +126,20 @@ Rust側のTauriコマンドが`rusqlite`でSQLiteを操作します。SQLite本�
 ```powershell
 npm run build
 npm test
+npm run test:release
 cargo test --manifest-path src-tauri/Cargo.toml
 npm run tauri build -- --debug --no-bundle
 npm run test:ui
 npm run tauri build
 ```
 
-`scripts/dev.ps1 -Task build`は配布用ビルド、`-Task test`は集計とSQLiteのテストを実行します。
+`scripts/dev.ps1 -Task build`はローカル確認用ビルド、`-Task test`は集計とSQLiteのテストを実行します。正式な更新用配布では GitHub Actions が `src-tauri/tauri.release.conf.json` を追加設定として使い、署名付き成果物を生成します。
 
 Windows配布用実行ファイルは `src-tauri/target/release/hibi-kakeibo.exe`、インストーラは `src-tauri/target/release/bundle/nsis/` に生成されます。
 
 画面テストはWindows上の実際のTauriアプリにPlaywrightを接続し、記録・編集・削除・検索・カテゴリ管理・月別集計とプロセス再起動後の保存を検証します。非表示WebViewの描画待機を避けるため、ボタンやラジオの操作にはDOMイベントを使用します。バックエンドのモックは使用しません。事前に上記のデバッグビルドが必要です。テストは `test-results/desktop-data-*` のSQLiteを使い、普段の家計簿には触れません。デバッグビルド限定の`HIBI_TEST_DATA_DIR`とWebView2のデバッグポート19224を使用します。画面の画像は`test-results/`に保存します。
+
+更新テストはローカルのテストサーバーと署名付きの無害なファイルを使い、インストーラー起動直前まで検証します。`test:release` は隔離した作業フォルダーで署名鍵セットアップ・バージョン変更・公開前検証をテストします。本番鍵は作成しません。
 
 ## 構成
 
@@ -141,11 +153,13 @@ src/
   Categories.tsx    カテゴリ管理
   PaymentMethods.tsx 支払い方法管理
   Settings.tsx      設定画面と祝日の取得・年別一覧
+  Updates.tsx       更新確認・進捗・バックアップの画面
   Presets.tsx       定期収支・入力テンプレートと確認待ち予定
   finance.ts        純粋な集計・期間・フィルタ処理
   api.ts            Tauriコマンド呼び出し
 src-tauri/src/
   lib.rs            Tauriと保存先の管理
+  updates.rs        署名検証・更新・SQLiteバックアップ
   db.rs             SQLiteスキーマ・入力検証・CRUD・保存テスト
   routines.rs       定期収支の日付計算・記録・二重登録防止
   migration_v2.sql  既存データを保った支払い方法とテンプレートの追加
